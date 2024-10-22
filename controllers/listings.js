@@ -26,26 +26,53 @@ module.exports.showListing = async (req, res) => {
 }
 
 module.exports.createListing = async (req, res, next) => {
-    let response = await geocodingClient
-        .forwardGeocode({
-            query: req.body.listing.location,
-            limit: 1
-        })
-        .send()
+    // let response = await geocodingClient
+    //     .forwardGeocode({
+    //         query: req.body.listing.location,
+    //         limit: 1
+    //     })
+    //     .send()
+    if (!req.isAuthenticated()) {
+        req.flash("error", "You must be logged in to create a listing.");
+        return res.redirect("/login");
+    }
 
-    let url = req.file.path;
-    let filename = req.file.filename;
-    // console.log(url, "..", filename);
-    const newListing = new Listing(req.body.listing);
-    newListing.owner = req.user._id;
-    newListing.image = {url, filename};
+    try {
+        let response = await geocodingClient.forwardGeocode({
+            query: req.body.listing.location,
+            limit: 1,
+        })
+        .send();
+        let url = req.file.path;
+        let filename = req.file.filename;
+        // console.log(url, "..", filename);
+        const newListing = new Listing(req.body.listing);
+        newListing.owner = req.user._id;
+        newListing.image = {url, filename};
+        
+        newListing.geometry = response.body.features[0].geometry;
+        let savedListing = await newListing.save();
+        console.log(savedListing);
+        
+        req.flash("success", "New Listing Created!");
+        res.redirect("/listings");
+    }  catch (error) {
+        req.flash("error", "Failed to create listing: " + error.message);
+        res.redirect("/listings/new");
+    }
+    // let url = req.file.path;
+    // let filename = req.file.filename;
+    // // console.log(url, "..", filename);
+    // const newListing = new Listing(req.body.listing);
+    // newListing.owner = req.user._id;
+    // newListing.image = {url, filename};
     
-    newListing.geometry = response.body.features[0].geometry;
-    let savedListing = await newListing.save();
-    console.log(savedListing);
+    // newListing.geometry = response.body.features[0].geometry;
+    // let savedListing = await newListing.save();
+    // console.log(savedListing);
     
-    req.flash("success", "New Listing Created!");
-    res.redirect("/listings");
+    // req.flash("success", "New Listing Created!");
+    // res.redirect("/listings");
 }
 
 //render listing form
